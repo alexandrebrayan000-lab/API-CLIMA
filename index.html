@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meu App de Clima</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      margin: 0;
+    }
+    h1 { color: #1a73e8; margin-bottom: 5px; }
+    p { color: #555; }
+
+    /* Painel de Controle (Busca e Cadastro) */
+    .painel {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 600px;
+      margin: 20px 0 30px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    /* Seção de busca com a linha divisória no CSS */
+    .secao-busca {
+      border-bottom: 1px solid #eee;
+      padding-bottom: 20px;
+    }
+
+    .grupo-input {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    input {
+      padding: 10px 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      flex: 1;
+    }
+
+    button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    button:hover { background-color: #1557b0; }
+
+    /* Estilo dos Cards */
+    .cards-container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 200px;
+      text-align: center;
+    }
+
+    .temp {
+      font-size: 2.8rem;
+      font-weight: bold;
+      color: #202124;
+      margin: 10px 0;
+    }
+
+    .info { color: #5f6368; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <h1>☀️ Clima em Tempo Real</h1>
+  <p>Dados consumidos diretamente da sua própria API Node.js</p>
+
+  <!-- PAINEL DE CONTROLE -->
+  <div class="painel">
+    
+    <!-- 1. CAMPO DE PESQUISA -->
+    <div class="secao-busca">
+      <h3>🔍 Pesquisar Cidade</h3>
+      <div class="grupo-input">
+        <input type="text" id="campo-busca" placeholder="Digite o nome da cidade..." oninput="filtrarCidades()">
+      </div>
+    </div>
+
+    <!-- 2. FORMULÁRIO PARA CADASTRAR CIDADE (POST) -->
+    <div class="secao-cadastro">
+      <h3>➕ Adicionar Nova Cidade</h3>
+      <form id="form-cidade" class="grupo-input">
+        <input type="text" id="input-nome" placeholder="Nome (Ex: Salvador)" required>
+        <input type="number" step="any" id="input-lat" placeholder="Latitude (Ex: -12.97)" required>
+        <input type="number" step="any" id="input-lon" placeholder="Longitude (Ex: -38.51)" required>
+        <button type="submit">Cadastrar</button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- CONTAINER ONDE FICAM OS CARDS -->
+  <div class="cards-container" id="container-clima">
+    <p>Carregando clima em tempo real...</p>
+  </div>
+
+  <script>
+    let todasAsCidades = [];
+
+    // 1. BUSCAR DADOS DA SUA API
+    async function carregarClima() {
+      try {
+        const resposta = await fetch('http://localhost:3000/clima');
+        todasAsCidades = await resposta.json();
+        exibirCards(todasAsCidades);
+      } catch (erro) {
+        console.error('Erro ao buscar dados:', erro);
+        document.getElementById('container-clima').innerHTML = '<p>Erro ao carregar os dados!</p>';
+      }
+    }
+
+    // 2. DESENHAR CARDS NA TELA
+    function exibirCards(lista) {
+      const container = document.getElementById('container-clima');
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      if (lista.length === 0) {
+        container.innerHTML = '<p>Nenhuma cidade encontrada.</p>';
+        return;
+      }
+
+      lista.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <h2>${item.cidade}</h2>
+          <div class="temp">${item.temperatura}°C</div>
+          <div class="info">💨 Vento: ${item.vento} km/h</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // 3. FILTRAR CIDADES NA BUSCA
+    function filtrarCidades() {
+      const termo = document.getElementById('campo-busca').value.toLowerCase();
+      const filtradas = todasAsCidades.filter(item => 
+        item.cidade.toLowerCase().includes(termo)
+      );
+      exibirCards(filtradas);
+    }
+
+    // 4. ENVIAR NOVA CIDADE PARA O BACKEND (POST)
+    document.getElementById('form-cidade').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const cidade = document.getElementById('input-nome').value;
+      const lat = document.getElementById('input-lat').value;
+      const lon = document.getElementById('input-lon').value;
+
+      try {
+        const resposta = await fetch('http://localhost:3000/clima', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cidade, lat, lon })
+        });
+
+        if (resposta.ok) {
+          document.getElementById('form-cidade').reset();
+          carregarClima(); // Atualiza a lista na tela
+        } else {
+          alert('Erro ao cadastrar cidade!');
+        }
+      } catch (erro) {
+        console.error('Erro no POST:', erro);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', carregarClima);
+  </script>
+</body>
+</html>
